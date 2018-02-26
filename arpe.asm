@@ -492,7 +492,7 @@ polymorphic_engine:
 	call    lcg_rand32
 	mov     al, PREFIX_NOT_NEG_R
 	and     ah, 0x3
-	or      ah, OPCODE_NOT_R
+	or      ah, OPCODE_NEG_R
 	mov     [rsi], ax
 	mov     [rdi], ax
 	add     rsi, 0x2
