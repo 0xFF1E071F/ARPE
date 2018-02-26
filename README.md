@@ -13,37 +13,41 @@ When **ARPE** is executed it decrypts the polymorphic engine and replicates itse
 
 For example, here is a portion of a randomly generated encryption function ...  
 ```x86asm
-0000000000401B13 | C1 C1 17           | rol ecx,17              |
-0000000000401B16 | 01 D0              | add eax,edx             |
-0000000000401B18 | 29 C3              | sub ebx,eax             |
-0000000000401B1A | C1 CA 01           | ror edx,1               |
-0000000000401B1D | 29 D0              | sub eax,edx             |
-0000000000401B1F | C1 CB 07           | ror ebx,7               |
-0000000000401B22 | 31 D0              | xor eax,edx             |
-0000000000401B24 | 81 F0 33 0F 00 00  | xor eax,F33             |
-0000000000401B2A | 81 F1 09 33 00 00  | xor ecx,3309            |
-0000000000401B30 | F7 D1              | not ecx                 |
-0000000000401B32 | 81 F2 C3 24 00 00  | xor edx,24C3            |
-0000000000401B38 | C1 C2 19           | rol edx,19              |
-0000000000401B3B | FF C9              | dec ecx                 |
-0000000000401B3D | 81 C3 61 00 00 00  | add ebx,61              |
+0000000000401B0E | F7 D3                              | not ebx                                 |
+0000000000401B10 | 81 EB 4E 34 00 61                  | sub ebx,6100344E                        |
+0000000000401B16 | C1 CA 05                           | ror edx,5                               |
+0000000000401B19 | 31 C1                              | xor ecx,eax                             |
+0000000000401B1B | FF C2                              | inc edx                                 |
+0000000000401B1D | C1 C3 15                           | rol ebx,15                              |
+0000000000401B20 | 81 F3 03 93 D3 7D                  | xor ebx,7DD39303                        |
+0000000000401B26 | 01 D9                              | add ecx,ebx                             |
+0000000000401B28 | C1 C0 0D                           | rol eax,D                               |
+0000000000401B2B | FF CB                              | dec ebx                                 |
+0000000000401B2D | F7 D1                              | not ecx                                 |
+0000000000401B2F | 29 C2                              | sub edx,eax                             |
+0000000000401B31 | F7 D3                              | not ebx                                 |
+0000000000401B33 | 81 F1 F3 42 CF 02                  | xor ecx,2CF42F3                         |
+0000000000401B39 | 01 D0                              | add eax,edx                             |
+0000000000401B3B | C1 C3 1D                           | rol ebx,1D                              |
 ```
 ... and here is the corresponding portion of the decryption function.  
 ```x86asm
-00000000004016A7 | 81 EB 61 00 00 00  | sub ebx,61              |
-00000000004016AD | FF C1              | inc ecx                 |
-00000000004016AF | C1 CA 19           | ror edx,19              |
-00000000004016B2 | 81 F2 C3 24 00 00  | xor edx,24C3            |
-00000000004016B8 | F7 D1              | not ecx                 |
-00000000004016BA | 81 F1 09 33 00 00  | xor ecx,3309            |
-00000000004016C0 | 81 F0 33 0F 00 00  | xor eax,F33             |
-00000000004016C6 | 31 D0              | xor eax,edx             |
-00000000004016C8 | C1 C3 07           | rol ebx,7               |
-00000000004016CB | 01 D0              | add eax,edx             |
-00000000004016CD | C1 C2 01           | rol edx,1               |
-00000000004016D0 | 01 C3              | add ebx,eax             |
-00000000004016D2 | 29 D0              | sub eax,edx             |
-00000000004016D4 | C1 C9 17           | ror ecx,17              |
+00000000004016CC | C1 CB 1D                           | ror ebx,1D                              |
+00000000004016CF | 29 D0                              | sub eax,edx                             |
+00000000004016D1 | 81 F1 F3 42 CF 02                  | xor ecx,2CF42F3                         |
+00000000004016D7 | F7 D3                              | not ebx                                 |
+00000000004016D9 | 01 C2                              | add edx,eax                             |
+00000000004016DB | F7 D1                              | not ecx                                 |
+00000000004016DD | FF C3                              | inc ebx                                 |
+00000000004016DF | C1 C8 0D                           | ror eax,D                               |
+00000000004016E2 | 29 D9                              | sub ecx,ebx                             |
+00000000004016E4 | 81 F3 03 93 D3 7D                  | xor ebx,7DD39303                        |
+00000000004016EA | C1 CB 15                           | ror ebx,15                              |
+00000000004016ED | FF CA                              | dec edx                                 |
+00000000004016EF | 31 C1                              | xor ecx,eax                             |
+00000000004016F1 | C1 C2 05                           | rol edx,5                               |
+00000000004016F4 | 81 C3 4E 34 00 61                  | add ebx,6100344E                        |
+00000000004016FA | F7 D3                              | not ebx                                 |
 ```
 
 ## License
